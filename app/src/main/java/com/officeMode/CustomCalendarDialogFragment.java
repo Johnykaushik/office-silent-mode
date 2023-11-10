@@ -10,6 +10,8 @@ import android.widget.CalendarView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
+
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -70,9 +72,10 @@ public class CustomCalendarDialogFragment extends DialogFragment {
     }
 
     private long getDateTimestamp(int year, int month, int dayOfMonth) {
-        // Convert year, month, and day to a timestamp
-        // You can implement this method based on your requirements
-        // For example: return timestamp;
-        return 111111111;
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.MONTH,month);
+        cal.set(Calendar.YEAR,year);
+        cal.set(Calendar.DAY_OF_MONTH,dayOfMonth);
+        return cal.getTimeInMillis();
     }
 }

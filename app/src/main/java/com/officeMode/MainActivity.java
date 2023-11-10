@@ -1,4 +1,5 @@
 package com.officeMode;
+
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
@@ -18,16 +19,19 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.TimePicker;
 
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Calendar;
+
 import android.app.TimePickerDialog;
 
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
-import android.media.AudioManager;
 
+import android.media.AudioManager;
 
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -39,15 +43,17 @@ import java.util.List;
 import java.util.Map;
 
 import android.content.Context;
+
 import com.google.android.material.datepicker.MaterialDatePicker;
 import com.google.android.material.datepicker.MaterialPickerOnPositiveButtonClickListener;
 import com.google.gson.Gson;
 
 import java.util.Date;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements IButtonClick {
 
     private Switch switchScheduler;
     private List<CheckBox> checkBoxes;
@@ -55,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
     private Button buttonStartTime;
     private Button buttonEndTime;
 
-    private Button openCalender;
+    private Button exceptDateCalender;
     private TextView startTimeTextView;
     private TextView endTimeTextView;
     private Map<String, Map<String, Integer>> scheduleTime = new HashMap<String, Map<String, Integer>>();
@@ -68,13 +74,13 @@ public class MainActivity extends AppCompatActivity {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMM yyyy");
 
 
-
     Utils utils = new Utils();
     ScheduleModel scheduleModel = new ScheduleModel();
     private RecyclerView recyclerView;
     private MonthAdapter monthAdapter;
 
-   private List<MonthData> monthDataList = new ArrayList<>();
+    private List<MonthData> monthDataList = new ArrayList<>();
+
     private void setStoreSchedule() {
         switchScheduler.setChecked(store.getIsEnable());
         String startTime = store.getStartTime();
@@ -87,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startSchedule(Intent serviceIntent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForegroundService(serviceIntent);
         } else {
             startService(serviceIntent);
@@ -97,7 +103,6 @@ public class MainActivity extends AppCompatActivity {
     private void stopSchedule(Intent serviceIntent) {
         stopService(serviceIntent);
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
         checkBoxes.add((CheckBox) findViewById(R.id.checkbox_saturday));
         checkBoxes.add((CheckBox) findViewById(R.id.checkbox_sunday));
         textSelectedWeekdays = findViewById(R.id.text_selected_weekdays);
-        openCalender = findViewById(R.id.openCalender);
+        exceptDateCalender = findViewById(R.id.exceptDateCalender);
 
 
         buttonStartTime = findViewById(R.id.button_start_time);
@@ -186,7 +191,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 //       calender open button
-        openCalender.setOnClickListener(new View.OnClickListener() {
+
+        exceptDateCalender.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 final Calendar c = Calendar.getInstance();
@@ -205,8 +211,8 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onDateSet(DatePicker view, int year,
                                                   int month, int date) {
-                                updateSelectedDatesText(month,date);
-                                System.out.println("my current selected date " + year  + " month " + month + " day of year" + date);
+                                updateSelectedDatesText(month, date, year);
+                                System.out.println("my current selected date " + year + " month " + month + " day of year: " + date);
                             }
                         },
                         year, month, day);
@@ -215,31 +221,34 @@ public class MainActivity extends AppCompatActivity {
 
                 //  set max date from now (2 months from now)
                 Calendar max = Calendar.getInstance();
-                max.add(Calendar.MONTH,2);
+                max.add(Calendar.MONTH, 2);
                 datePickerDialog.getDatePicker().setMaxDate(max.getTimeInMillis());
                 datePickerDialog.show();
             }
         });
 
-    try {
-        if(store.getIsEnable()){
-            startSchedule(serviceIntent);
-        }else {
-            stopSchedule(serviceIntent);
+        try {
+            if (store.getIsEnable()) {
+                startSchedule(serviceIntent);
+            } else {
+                stopSchedule(serviceIntent);
+            }
+        } catch (Exception er) {
+            System.out.println("i have a erro " + er.getMessage());
         }
-    }catch(Exception er){
-        System.out.println("i have a erro " + er.getMessage());
-    }
 
-        recyclerView = findViewById(R.id.recyclerView);
+        recyclerView = findViewById(R.id.excepted_date_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         monthDataList = new ArrayList<>(); // Replace with your data
-        monthAdapter = new MonthAdapter(monthDataList,store);
+        monthAdapter = new MonthAdapter(monthDataList, store, this);
         recyclerView.setAdapter(monthAdapter);
+
+//        recyclerView.setVisibility(View.GONE);
 
         setMonthDateFromStore(true);
     }
+
     private void showTimePickerDialog(String type) {
         Calendar calendar = Calendar.getInstance();
         int hour = calendar.get(Calendar.HOUR_OF_DAY);
@@ -250,14 +259,13 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onTimeSet(TimePicker view, int hourOfDay, int minute) {
 
-                        if(type == "start"){
-                            setTimeInStoreView(hourOfDay + ":" + minute,"start",true);
-                        }else {
-                            setTimeInStoreView(hourOfDay + ":" + minute,"end",true);
+                        if (type == "start") {
+                            setTimeInStoreView(hourOfDay + ":" + minute, "start", true);
+                        } else {
+                            setTimeInStoreView(hourOfDay + ":" + minute, "end", true);
                         }
                     }
                 }, hour, minute, false);
-
         timePickerDialog.show();
     }
 
@@ -268,6 +276,7 @@ public class MainActivity extends AppCompatActivity {
         calendar.set(Calendar.MINUTE, minute);
         return timeFormat.format(calendar.getTime());
     }
+
     private void updateSelectedWeekdays() {
         StringBuilder builder = new StringBuilder();
         for (String weekday : selectedWeekdays) {
@@ -283,45 +292,35 @@ public class MainActivity extends AppCompatActivity {
         textSelectedWeekdays.setText("Selected Weekdays: " + builder.toString());
     }
 
-    private boolean compareTime(int hours,int mins){
-            Calendar currentTme = Calendar.getInstance();
-            System.out.println("Current time is " + currentTme);
-            Calendar ourTime = Calendar.getInstance();
-            ourTime.set(Calendar.HOUR_OF_DAY,hours);
-            ourTime.set(Calendar.MINUTE,mins);
-            System.out.println("set time is " + ourTime);
-            return currentTme.compareTo(ourTime) == 0;
-    }
-
-    private void dndGrantAccess(){
+    private void dndGrantAccess() {
         NotificationManager n = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        if(!n.isNotificationPolicyAccessGranted()) {
+        if (!n.isNotificationPolicyAccessGranted()) {
             Intent intent = new Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS);
             startActivity(intent);
         }
     }
 
 
-    private void setTimeInStoreView(String time,String type,Boolean saveInStore){
-        if(time != null){
+    private void setTimeInStoreView(String time, String type, Boolean saveInStore) {
+        if (time != null) {
             String[] timeAr = time.split(":");
 
             Log.d("errors", "setTimeInStoreView: " + time);
             int timeLen = timeAr.length;
-            if(timeLen >= 2){
+            if (timeLen >= 2) {
                 try {
                     Integer hour = Integer.parseInt(timeAr[0]);
                     Integer min = Integer.parseInt(timeAr[1]);
 
                     String formattedTime = formatTime(hour, min);
-                    if(type == "start"){
+                    if (type == "start") {
                         startTimeTextView.setText(formattedTime);
-                        if(saveInStore){
+                        if (saveInStore) {
                             store.setStartTime(hour + ":" + min);
                         }
-                    }else  if(type == "end"){
+                    } else if (type == "end") {
                         endTimeTextView.setText(formattedTime);
-                        if(saveInStore){
+                        if (saveInStore) {
                             store.setEndTime(hour + ":" + min);
                         }
                     }
@@ -331,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
                     timeSet.put("minute", min);
                     scheduleTime.put(type, timeSet);
 
-                }catch (Exception ex){
+                } catch (Exception ex) {
                     System.out.println("time set has error 1" + ex.getMessage());
                     System.out.println(ex.getStackTrace());
 
@@ -339,108 +338,106 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    private void setWeekdayStatus(String weekDays){
-        if(weekDays != null){
+
+    private void setWeekdayStatus(String weekDays) {
+        if (weekDays != null) {
             String[] days = weekDays.split(", ");
-            Map<String,Boolean> weekMap = new HashMap<>();
-            for(String day  : days){
-                weekMap.put(day,true);
+            Map<String, Boolean> weekMap = new HashMap<>();
+            for (String day : days) {
+                weekMap.put(day, true);
                 System.out.println("selected days " + day);
             }
             try {
                 for (final CheckBox checkBox : checkBoxes) {
                     if (weekMap.containsKey(checkBox.getText())) {
                         checkBox.setChecked(true);
-                         selectedWeekdays.add(checkBox.getText().toString());
+                        selectedWeekdays.add(checkBox.getText().toString());
                     }
                 }
-            }catch(Exception ex){
+            } catch (Exception ex) {
                 System.out.println("found a erro " + ex.getMessage());
             }
         }
     }
 
-    private void updateSelectedDatesText(int month, int date) {
+    private void setDateInStore(List<Integer> finalList) {
+        Collections.sort(finalList);
+        String result = finalList.stream()
+                .map(Object::toString)
+                .collect(Collectors.joining("-"));
 
-        try {
-        String[] monthsName = utils.montName();
-        String monthName = monthsName[month];
-        HashMap<String, HashSet<Integer>>  monthDays =  setMonthDateFromStore(false);
-//        System.out.println("monthDaysmonthDays " + monthDays);
-            if(monthDays != null){
-                if(monthDays.containsKey(monthName)){
-                    monthDays.get(monthName).add(date);
-                }else {
-                    HashSet<Integer> dateSet = new HashSet<>();
-                    dateSet.add(date);
-                    monthDays.put(monthName,dateSet);
-                }
-                scheduleModel.setMonthDays(monthDays);
-            }   else {
-                HashMap<String,HashSet<Integer>>  monthDaysInit = new HashMap<>();
-                HashSet<Integer> dateSetB = new HashSet<>();
-                dateSetB.add(date);
-                monthDaysInit.put(monthName,dateSetB);
-                scheduleModel.setMonthDays(monthDaysInit);
-            }
-
-            HashMap<String, HashSet<Integer>>  monthDaysUpdated = scheduleModel.getMonthDays();
-
-            StringBuilder formattedDates = new StringBuilder();
-
-            for(Map.Entry<String, HashSet<Integer>> entry : monthDaysUpdated.entrySet()){
-                String nameOfMonth = entry.getKey();
-                HashSet<Integer> allDays =  entry.getValue();
-                formattedDates.append(nameOfMonth + "=");
-                for(int i : allDays){
-                    formattedDates.append(i+"_");
-                }
-                formattedDates.append(",");
-            }
-            store.setMonthDate(String.valueOf(formattedDates));
-            setMonthDateFromStore(true);
-//            System.out.println("Install successfully " + date + " " +  month + ">>>>>>>> " +   formattedDates + "already saved " + store.getMonthDate());
-
-        }catch (Exception ex){
-            System.out.println("date has error " + ex.getMessage() + "line" + ex);
-        }
+        Log.d("TAG", "setDateInStore: " + result);
+        store.setMonthDate(result);
     }
 
-    public void sampleTest(){
-        System.out.println("function classed");
-    }
-    public HashMap<String, HashSet<Integer>> setMonthDateFromStore(Boolean isSet){
+    private void updateSelectedDatesText(int month, int date, int year) {
 
+        Utils utils1 = new Utils();
+        int selectedDate = utils1.getDateTimestamp(year, month, date);
 
-        String storeDates =  store.getMonthDate();
-        HashMap<String, HashSet<Integer>>  monthDays = new HashMap<>();
-        if(isSet){
-            monthDataList.clear();
-        }
-        if(storeDates.length() != 0){
-            String[] months = storeDates.split(",");
+        Log.d("TAG", "updateSelectedDatesText: " + selectedDate);
+        String existing = store.getMonthDate();
 
-            if(months.length > 0){
-                for(String month : months){
-                    String [] monthWDate = month.split("=");
-                    if(monthWDate.length > 0){
-                        String monthName = monthWDate[0];
-                        HashSet<Integer> dayChunk = new HashSet<>();
-                        String[] dateList = monthWDate[1].split("_");
-                        if(dateList.length > 0){
-                            for(String date  : dateList){
-                                dayChunk.add(Integer.parseInt(date));
-                                if(isSet) {
-                                    monthDataList.add(new MonthData(monthName, Integer.parseInt(date)));
-                                    monthAdapter.notifyDataSetChanged();
-                                }
-                            }
-                        }
-                        monthDays.put(monthName,dayChunk);
+        List<Integer> finalList = new ArrayList<>();
+        finalList.add(selectedDate);
+        if (!existing.isEmpty()) {
+            String[] splList = existing.split("-");
+            if (splList.length > 0) {
+                for (String item : splList) {
+                    Integer intItm = Integer.parseInt(item);
+                    if (!finalList.contains(intItm)) {
+                        finalList.add(intItm);
                     }
                 }
             }
         }
+        if (finalList.size() > 0) {
+            setDateInStore(finalList);
+            setMonthDateFromStore(true);
+        }
+    }
+
+    public HashMap<String, HashSet<Integer>> setMonthDateFromStore(Boolean isSet) {
+        String storeDates = store.getMonthDate();
+        HashMap<String, HashSet<Integer>> monthDays = new HashMap<>();
+        try {
+            if (storeDates != null) {
+                String[] months = storeDates.split("-");
+
+                Utils utils1 = new Utils();
+                monthDataList.clear(); // Clear the list before populating it
+                for (String detail : months) {
+                    if (detail != null && detail.length() > 0) {
+                        long timestamps = Long.parseLong(detail); // Parse the timestamp as a long
+
+                        Log.d("TAG", "setMonthDateFromStore: "+ timestamps);
+                        String dayName = utils1.unixToDate(timestamps, "EEEE");
+                        String monthName = utils1.unixToDate(timestamps, "d-MMM-uuuu");
+                        monthDataList.add(new MonthData(dayName, monthName, timestamps));
+                    }
+                }
+            }
+            monthAdapter.notifyDataSetChanged();
+        } catch (ArrayIndexOutOfBoundsException ex) {
+            Log.d("TAG", "setMonthDateFromStore: " + ex.getMessage());
+        }
         return monthDays;
+    }
+
+    public void clickItem(int position) {
+        String deletable = monthDataList.get(position).getUnixDate().toString();
+        if (!deletable.isEmpty()) {
+            Map<String, Integer> existingList = utils.getParsedDates(store);
+            if (existingList.get(deletable) != null) {
+                existingList.remove(deletable);
+            }
+
+            List<Integer> list = new ArrayList<>();
+            for (Map.Entry<String, Integer> oneDate : existingList.entrySet()) {
+                list.add(oneDate.getValue());
+            }
+            setDateInStore(list);
+            setMonthDateFromStore(true);
+        }
     }
 }

@@ -1,5 +1,13 @@
 package com.officeMode;
 
+import android.content.Context;
+import android.util.Log;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -17,6 +25,8 @@ public class Utils {
 
     public HashMap<String, HashSet<Integer>> getMonthDateFromStore(ScheduleStore store){
         String storeDates =  store.getMonthDate();
+
+        Log.d("TAG", "getMonthDateFromStore: " + storeDates);
         HashMap<String, HashSet<Integer>>  monthDays = new HashMap<>();
         if(storeDates.length() != 0){
             String[] months = storeDates.split(",");
@@ -39,5 +49,44 @@ public class Utils {
             }
         }
         return monthDays;
+    }
+    public int getDateTimestamp(int year, int month, int dayOfMonth) {
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.MONTH,month);
+        cal.set(Calendar.YEAR,year);
+        cal.set(Calendar.DAY_OF_MONTH,dayOfMonth);
+        cal.set(Calendar.HOUR,10);
+        cal.set(Calendar.MINUTE,0);
+        cal.set(Calendar.SECOND,0);
+        return Math.round(cal.getTimeInMillis() / 1000);
+    }
+
+    public int getDayFromUnix(long unixTimestamp) {
+        Instant instant = Instant.ofEpochSecond(unixTimestamp);
+        ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("d");
+        return Integer.parseInt(zonedDateTime.format(dayFormatter));
+    }
+
+    public String unixToDate(long unixTimestamp, String format) {
+        Instant instant = Instant.ofEpochSecond(unixTimestamp);
+        ZonedDateTime zonedDateTime = instant.atZone(ZoneId.systemDefault());
+        DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern(format); // "d-MMM-uuuu" //  EEEE
+        return zonedDateTime.format(monthFormatter);
+    }
+
+    public HashMap<String,Integer> getParsedDates(ScheduleStore store){
+        String storeDates = store.getMonthDate();
+        HashMap<String,Integer> list = new HashMap<>();
+        if(storeDates != null){
+            if(!storeDates.isEmpty()){
+                String[] dateList = storeDates.split("-");
+
+                for(String date : dateList){
+                    list.put(date, Integer.parseInt(date));
+                }
+            }
+        }
+        return  list;
     }
 }

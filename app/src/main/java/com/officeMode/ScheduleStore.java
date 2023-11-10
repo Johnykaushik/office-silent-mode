@@ -5,7 +5,7 @@ import android.util.Log;
 
 public class ScheduleStore {
     private static final String PREFERENCES_NAME = "schedulePref";
-    private static final String KEY_ENABLE = "isEnable";
+    private static final String KEY_ENABLE = "schedulerStarted";
     private static final String KEY_WEEKDAYS = "weekdays";
     private static final String KEY_START_TIME = "startTime";
     private static final String KEY_END_TIME = "endTime";
@@ -18,6 +18,9 @@ public class ScheduleStore {
     public ScheduleStore(Context context) {
         sharedPreferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE);
         editor = sharedPreferences.edit();
+        editor.remove("isEnable");
+        editor.remove("isEnabled");
+        editor.apply();
     }
 
     public void saveData(boolean isEnable, String weekdays, String startTime, String endTime) {
@@ -30,7 +33,6 @@ public class ScheduleStore {
     }
 
     public boolean getIsEnable() {
-        Log.d("debug", "getIsEnable: ");
         return sharedPreferences.getBoolean(KEY_ENABLE,false);
     }
 
@@ -43,7 +45,6 @@ public class ScheduleStore {
     }
 
     public String getEndTime() {
-        System.out.println("getting alll " + sharedPreferences.getAll());
         return sharedPreferences.getString(KEY_END_TIME, "");
     }
     public void setEnable(boolean enable){
@@ -51,13 +52,11 @@ public class ScheduleStore {
         editor.apply();
     }
     public void setStartTime(String time){
-        System.out.println("Start at 1 " + time);
         editor.putString(KEY_START_TIME,time);
         editor.apply();
     }
 
     public void setEndTime(String time){
-        System.out.println("Start at 2 " + time);
         editor.putString(KEY_END_TIME,time);
         editor.apply();
     }
@@ -67,12 +66,15 @@ public class ScheduleStore {
     }
 
     public String getMonthDate() {
-        System.out.println("All stored" +   sharedPreferences.getAll());
         return sharedPreferences.getString(KEY_MONTH_DATE, "");
     }
     public void setMonthDate(String monthDate){
 
         editor.putString(KEY_MONTH_DATE,monthDate);
         editor.apply();
+    }
+
+    public void getAll(){
+        Log.d("TAG", "getAll: " + sharedPreferences.getAll());
     }
 }

@@ -3,30 +3,34 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
+    android:paddingLeft="10dp"
+    android:background="@color/white"
+    android:layout_marginTop="20dp"
     >
-
     <TextView
         android:id="@+id/monthName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Month"
-        />
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:text="Month" />
 
     <TextView
         android:id="@+id/dateList"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
         android:text="Date"
-        android:layout_marginLeft="20dp"
         />
-    <Button
-        android:id="@+id/deleteButton"
-        android:layout_width="60dp"
-        android:layout_height="40dp"
-        android:textAlignment="center"
-        android:text="X"
-        android:textSize="10dp"
-        android:textColor="@color/myRed"
-        android:layout_marginLeft="50dp"
+    <TextView
+        android:id="@+id/unixDate"
+        android:layout_height="1dp"
+        android:layout_width="1dp"
         />
+
+    <ImageView
+        android:id="@+id/delete_calender_date"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:src="@drawable/delete_icon" />
 </LinearLayout>

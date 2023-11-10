@@ -24,6 +24,8 @@ import androidx.core.app.NotificationManagerCompat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -36,10 +38,11 @@ public class ScheduleService extends Service {
     private String TAG = "debug-services";
 
     private static final CharSequence CHANNEL_NAME = "Your Channel Name";
-
+    private Utils utils;
 
     @Override
     public void onCreate() {
+        utils = new Utils();
         super.onCreate();
     }
 
@@ -50,7 +53,7 @@ public class ScheduleService extends Service {
         if (time != null) {
             String[] timeAr = time.split(":");
 
-            Log.d("errors", "setTimeInStoreView: " + time);
+//            Log.d("errors", "setTimeInStoreView: " + time);
             int timeLen = timeAr.length;
             if (timeLen >= 2) {
                 hour = Integer.parseInt(timeAr[0]);
@@ -61,12 +64,35 @@ public class ScheduleService extends Service {
         return times;
     }
 
+    private HashSet<String> getArrangeDate() {
+        HashMap<String, Integer> exceptedDate = utils.getParsedDates(store);
+
+        HashSet<String> parsedDate = new HashSet<>();
+        for (Map.Entry<String, Integer> date : exceptedDate.entrySet()) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTimeInMillis(Long.parseLong(date.getValue() + "000"));
+
+            int startYear = cal.get(Calendar.YEAR);
+            int startMonth = cal.get(Calendar.MONTH);
+            int startDay = cal.get(Calendar.DAY_OF_MONTH);
+            parsedDate.add(startYear + "-" + startMonth + "-" + startDay);
+        }
+
+//        Iterator<String> iterator = parsedDate.iterator();
+//        while(iterator.hasNext()){
+//            Log.d(TAG, "I need to skip this date all : " + iterator.next());
+//        }
+        return parsedDate;
+    }
+
     private void checkScheduleStatus() {
         try {
             store = new ScheduleStore(this);
             String daysList[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
             int weekDay = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
             boolean isEnable = store.getIsEnable();
+
+            store.getAll();
             if (isEnable) {
                 String startTime = store.getStartTime();
                 String endTime = store.getEndTime();
@@ -83,13 +109,7 @@ public class ScheduleService extends Service {
                     if (weekMap.containsKey(today)) {
                         Integer[] startAt = getTimeSpl(startTime);
                         Integer[] endAt = getTimeSpl(endTime);
-//                    Log.d(TAG, "checkScheduleStatus: startH " + startAt[0]);
-//                    Log.d(TAG, "checkScheduleStatus: startM " + startAt[1]);
-//                    Log.d(TAG, "checkScheduleStatus: endH " + endAt[0]);
-//                    Log.d(TAG, "checkScheduleStatus: endM " + endAt[1]);
                         Calendar calendar = Calendar.getInstance();
-                        Integer hour = calendar.get(Calendar.HOUR_OF_DAY);
-                        Integer minute = calendar.get(Calendar.MINUTE);
 
                         Integer startH = startAt[0];
                         Integer startM = startAt[1];
@@ -98,38 +118,49 @@ public class ScheduleService extends Service {
                         AudioManager audioManager = (AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
                         int currentMode = audioManager.getRingerMode();
                         if (startH != null && startM != null && endH != null && endM != null) {
+
                             Calendar startTimeU = Calendar.getInstance();
                             startTimeU.set(Calendar.HOUR_OF_DAY, startH);
                             startTimeU.set(Calendar.MINUTE, startM);
 
-                            Calendar endTimeU = Calendar.getInstance();
-                            endTimeU.set(Calendar.HOUR_OF_DAY, endH);
-                            endTimeU.set(Calendar.MINUTE, endM);
-
-                            long currentTimestamp = calendar.getTimeInMillis() / 1000;
-                            long startTimestamp = startTimeU.getTimeInMillis() / 1000;
-                            long endTimestamp = endTimeU.getTimeInMillis() / 1000;
+                            int startYear = startTimeU.get(Calendar.YEAR);
+                            int startMonth = startTimeU.get(Calendar.MONTH);
+                            int startDay = startTimeU.get(Calendar.DAY_OF_MONTH);
 
 
-                            Log.d(TAG, "start time: " + currentTimestamp + " start " + startTimestamp + " end " + endTimestamp);
+                            HashSet<String> parsedDate = getArrangeDate();
+                            String formatedDate = startYear + "-" + startMonth + "-" + startDay;
+                            if (!parsedDate.contains(formatedDate)) {
+                                Log.d(TAG, "I need to skip this date : " + formatedDate);
 
-//                        if(currentMode == AudioManager.RINGER_MODE_NORMAL){
-                            if (startTimestamp <= currentTimestamp && currentTimestamp < endTimestamp) {
-                                if (currentMode != AudioManager.RINGER_MODE_VIBRATE) {
-                                    dndGrantAccess(AudioManager.RINGER_MODE_VIBRATE);
-                                    Log.d(TAG, "can enable: timer ");
+                                Calendar endTimeU = Calendar.getInstance();
+                                endTimeU.set(Calendar.HOUR_OF_DAY, endH);
+                                endTimeU.set(Calendar.MINUTE, endM);
+
+                                long currentTimestamp = calendar.getTimeInMillis() / 1000;
+                                long startTimestamp = startTimeU.getTimeInMillis() / 1000;
+                                long endTimestamp = endTimeU.getTimeInMillis() / 1000;
+
+
+                                Log.d(TAG, "start time: " + currentTimestamp + " start " + startTimestamp + " end " + endTimestamp);
+
+                                if (startTimestamp <= currentTimestamp && currentTimestamp < endTimestamp) {
+                                    if (currentMode != AudioManager.RINGER_MODE_VIBRATE) {
+                                        dndGrantAccess(AudioManager.RINGER_MODE_VIBRATE);
+                                        Log.d(TAG, "can enable: timer ");
+                                    }
                                 }
-                            }
-//                        } else if(currentMode == AudioManager.RINGER_MODE_VIBRATE){
-                            if (endTimestamp > startTimestamp && currentTimestamp >= endTimestamp) {
-                                if (currentMode != AudioManager.RINGER_MODE_NORMAL) {
-                                    dndGrantAccess(AudioManager.RINGER_MODE_NORMAL);
-                                    Log.d(TAG, "can disable: timer ");
+                                if (endTimestamp > startTimestamp && currentTimestamp >= endTimestamp) {
+                                    if (currentMode != AudioManager.RINGER_MODE_NORMAL) {
+                                        dndGrantAccess(AudioManager.RINGER_MODE_NORMAL);
+                                        Log.d(TAG, "can disable: timer ");
+                                    }
                                 }
+                            }else {
+                                dndGrantAccess(AudioManager.RINGER_MODE_NORMAL);
                             }
-//                        }
                         }
-                    }else {
+                    } else {
 //                        dndGrantAccess(AudioManager.RINGER_MODE_NORMAL);
                     }
                 }
@@ -156,7 +187,7 @@ public class ScheduleService extends Service {
 //        startForeground(NOTIFICATION_ID, createNotification());
         createNotificationChannel();
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Office Silent mode" )
+//                .setContentTitle("Office Silent mode" )
                 .setSmallIcon(R.drawable.scheduler_background)
                 .setPriority(NotificationCompat.PRIORITY_LOW);
 
@@ -173,11 +204,10 @@ public class ScheduleService extends Service {
                     public void run() {
                         checkScheduleStatus();
                         System.out.println("Service running");
-
                     }
                 });
             }
-        }, 20000, 1000);
+        }, 20000, 10000);
 
         return START_STICKY;
     }
